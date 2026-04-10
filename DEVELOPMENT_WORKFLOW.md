@@ -13,7 +13,7 @@
 ```bash
 # 1. Clone and setup
 git clone <repository-url>
-cd ServiceMatch
+cd Clone-Thumbtack
 
 # 2. Install dependencies
 npm run install:all
@@ -33,7 +33,7 @@ npm run dev
 ## 📁 Project Structure
 
 ```
-ServiceMatch/
+Clone-Thumbtack/
 ├── client/                 # Next.js frontend
 │   ├── components/         # Reusable components
 │   ├── pages/             # Next.js pages

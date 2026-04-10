@@ -1,6 +1,7 @@
 const express = require("express");
 const db = require("../db");
 const { authenticateToken } = require("../middleware/auth");
+const { getMatchAccess } = require("../lib/matchMembership");
 
 const router = express.Router();
 
@@ -10,23 +11,12 @@ router.get("/match/:matchId", authenticateToken, async (req, res) => {
     const { matchId } = req.params;
     const { page = 1, limit = 50 } = req.query;
 
-    // Verify user has access to this match
-    const match = await db("matches")
-      .join("jobs", "matches.job_id", "jobs.id")
-      .join("professionals", "matches.professional_id", "professionals.id")
-      .where("matches.id", matchId)
-      .where(function () {
-        this.where("jobs.customer_id", req.user.id).orWhere(
-          "professionals.user_id",
-          req.user.id
-        );
-      })
-      .first();
-
-    if (!match) {
-      return res
-        .status(404)
-        .json({ error: "Match not found or access denied" });
+    const access = await getMatchAccess(db, matchId, req.user.id);
+    if (access.kind === "not_found") {
+      return res.status(404).json({ error: "Match not found" });
+    }
+    if (access.kind === "forbidden") {
+      return res.status(403).json({ error: "Access denied for this match" });
     }
 
     const offset = (page - 1) * limit;
@@ -55,26 +45,14 @@ router.post("/send", authenticateToken, async (req, res) => {
   try {
     const { matchId, content, messageType = "text", attachmentUrl } = req.body;
 
-    // Verify user has access to this match
-    const match = await db("matches")
-      .join("jobs", "matches.job_id", "jobs.id")
-      .join("professionals", "matches.professional_id", "professionals.id")
-      .where("matches.id", matchId)
-      .where(function () {
-        this.where("jobs.customer_id", req.user.id).orWhere(
-          "professionals.user_id",
-          req.user.id
-        );
-      })
-      .first();
-
-    if (!match) {
-      return res
-        .status(404)
-        .json({ error: "Match not found or access denied" });
+    const access = await getMatchAccess(db, matchId, req.user.id);
+    if (access.kind === "not_found") {
+      return res.status(404).json({ error: "Match not found" });
+    }
+    if (access.kind === "forbidden") {
+      return res.status(403).json({ error: "Access denied for this match" });
     }
 
-    // Create message
     const [message] = await db("messages")
       .insert({
         match_id: matchId,
@@ -85,7 +63,6 @@ router.post("/send", authenticateToken, async (req, res) => {
       })
       .returning("*");
 
-    // Get sender info
     const sender = await db("users")
       .where("id", req.user.id)
       .select("first_name", "last_name", "profile_image_url")
@@ -105,12 +82,19 @@ router.post("/send", authenticateToken, async (req, res) => {
   }
 });
 
-// Mark messages as read
+// Mark messages as read (only messages from others in this match; caller must be a participant)
 router.put("/mark-read", authenticateToken, async (req, res) => {
   try {
     const { matchId } = req.body;
 
-    // Mark all messages in this match as read for the current user
+    const access = await getMatchAccess(db, matchId, req.user.id);
+    if (access.kind === "not_found") {
+      return res.status(404).json({ error: "Match not found" });
+    }
+    if (access.kind === "forbidden") {
+      return res.status(403).json({ error: "Access denied for this match" });
+    }
+
     await db("messages")
       .where("match_id", matchId)
       .where("sender_id", "!=", req.user.id)

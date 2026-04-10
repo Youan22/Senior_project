@@ -57,6 +57,8 @@ interface JobMatch {
     address: string;
     city: string;
     state: string;
+    zip_code?: string;
+    preferred_date?: string;
     created_at: string;
     customer: {
       firstName: string;
@@ -185,43 +187,14 @@ export default function ProfessionalDashboard() {
         const data = await response.json();
         console.log("Job matches data received:", data);
 
-        // Transform the data to match our interface
-        const transformedMatches = (data.matches || []).map((match: any) => ({
-          id: match.id,
-          job_id: match.job_id,
-          professional_id: match.professional_id,
-          status: match.status,
-          created_at: match.created_at,
-          job: {
-            id: match.job_id,
-            title: match.title,
-            description: match.description,
-            service_category: match.service_category,
-            budget_min: match.budget_min,
-            budget_max: match.budget_max,
-            urgency: match.urgency,
-            address: match.address,
-            city: match.city,
-            state: match.state,
-            zip_code: match.zip_code,
-            preferred_date: match.preferred_date,
-            created_at: match.job_created_at,
-            customer: {
-              firstName: match.first_name,
-              lastName: match.last_name,
-              profile_image_url: match.profile_image_url,
-            },
-          },
-        }));
+        const list = (data.matches || []) as JobMatch[];
+        setJobMatches(list);
 
-        setJobMatches(transformedMatches);
-
-        // Calculate stats
-        const totalMatches = transformedMatches.length;
-        const activeMatches = transformedMatches.filter((match: JobMatch) =>
+        const totalMatches = list.length;
+        const activeMatches = list.filter((match: JobMatch) =>
           ["pending", "accepted"].includes(match.status)
         ).length;
-        const completedJobs = transformedMatches.filter(
+        const completedJobs = list.filter(
           (match: JobMatch) => match.status === "completed"
         ).length;
 
@@ -354,36 +327,7 @@ export default function ProfessionalDashboard() {
         />
       </Head>
 
-      <div className="min-h-screen bg-gray-50">
-        {/* Navigation */}
-        <nav className="bg-white shadow-sm border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <div className="flex items-center">
-                <Link href="/" className="text-2xl font-bold text-primary-600">
-                  ServiceMatch
-                </Link>
-              </div>
-              <div className="flex items-center space-x-4">
-                <span className="text-gray-700">
-                  Welcome, {user?.firstName}!
-                </span>
-                <button
-                  onClick={() => {
-                    localStorage.removeItem("token");
-                    localStorage.removeItem("user");
-                    router.push("/");
-                  }}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  Sign Out
-                </button>
-              </div>
-            </div>
-          </div>
-        </nav>
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900">
@@ -710,7 +654,6 @@ export default function ProfessionalDashboard() {
             </div>
           </div>
         </div>
-      </div>
 
       {/* Chat Modal */}
       <ChatModal

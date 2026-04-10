@@ -18,18 +18,18 @@ Branch for this work: `hotfix/security-and-config-v2` (replaces deleted `hotfix/
 
 **Payments** (`server/routes/payments.js`)
 
-- [ ] `create-payment-intent`: caller is verified as a participant in the match (customer for that job or matched professional); otherwise **403** (or documented policy).
-- [ ] `confirm-payment`: caller may only confirm payments tied to matches they are allowed to access; otherwise **403**.
-- [ ] Cross-account attempts (user A, user B’s match/payment) fail with **401** (no/invalid token) or **403** (forbidden), never **200** with another user’s data.
+- [x] `create-payment-intent`: caller must be the **job owner (customer)** for the match; non-participants **403**; unknown match **404**; professionals on the match **403** (only the payer creates the intent).
+- [x] `confirm-payment`: caller must be the job’s **customer** for the stored payment row; mismatching Stripe `metadata.userId` (when present) **403**; otherwise **403** / **404** as appropriate before calling Stripe.
+- [x] Cross-account attempts (user A, user B’s match/payment) fail with **401** (no token) or **403** (forbidden), never **200** with another user’s data.
 
 **Messages** (`server/routes/messages.js`)
 
-- [ ] Read/send: membership in `matchId` enforced (already partially present); unauthorized access returns **403** (not only 404) if that is the chosen policy.
-- [ ] `mark-read`: same membership check before any update; only messages in that match and only those the caller may mark read are updated.
+- [x] Read/send: membership via `getMatchAccess`; unknown match **404**; known match, not a participant **403**.
+- [x] `mark-read`: membership enforced before update; only messages in that match from **other** senders are marked read.
 
 **Tests**
 
-- [ ] Route-level tests: user A cannot access user B’s match/payment/message flows (assert status codes).
+- [x] Route-level tests in `server/__tests__/payments.messages.authz.test.js` (+ `matchMembership.test.js` for access helper).
 
 ---
 
@@ -67,8 +67,8 @@ Branch for this work: `hotfix/security-and-config-v2` (replaces deleted `hotfix/
 
 ## Validation checklist (before close)
 
-- [ ] Unauthorized access tests: **401** / **403** as specified.
-- [ ] Payment and message endpoints enforce ownership/membership.
+- [x] Unauthorized access tests: **401** / **403** as specified (Phase 1 routes).
+- [x] Payment and message endpoints enforce ownership/membership.
 - [ ] Match payloads complete and consistent across consumers.
 - [ ] Frontend uses env-based API URL only.
 - [ ] `npm run install:all` + docs yield successful first-time setup.

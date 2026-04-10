@@ -7,6 +7,19 @@ const { authenticateToken } = require("../middleware/auth");
 
 const router = express.Router();
 
+function isDatabaseUnreachable(err) {
+  if (!err) return false;
+  if (err.code === "ECONNREFUSED") return true;
+  if (
+    err.name === "AggregateError" &&
+    Array.isArray(err.errors) &&
+    err.errors.some((e) => e && e.code === "ECONNREFUSED")
+  ) {
+    return true;
+  }
+  return false;
+}
+
 // Validation schemas
 const registerSchema = Joi.object({
   email: Joi.string().email().required(),
@@ -94,6 +107,12 @@ router.post("/register", async (req, res) => {
     });
   } catch (error) {
     console.error("Registration error:", error);
+    if (isDatabaseUnreachable(error) && process.env.NODE_ENV !== "production") {
+      return res.status(503).json({
+        error:
+          "Database is not reachable (connection refused). Start PostgreSQL and check DB_HOST, DB_PORT, and DB_NAME in .env, then run migrations.",
+      });
+    }
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -142,6 +161,12 @@ router.post("/login", async (req, res) => {
     });
   } catch (error) {
     console.error("Login error:", error);
+    if (isDatabaseUnreachable(error) && process.env.NODE_ENV !== "production") {
+      return res.status(503).json({
+        error:
+          "Database is not reachable (connection refused). Start PostgreSQL and check DB_HOST, DB_PORT, and DB_NAME in .env.",
+      });
+    }
     res.status(500).json({ error: "Internal server error" });
   }
 });

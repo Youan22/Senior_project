@@ -82,36 +82,7 @@ export default function ProfessionalMatches() {
       if (response.ok) {
         const data = await response.json();
 
-        // Transform the data to match our interface
-        const transformedMatches = (data.matches || []).map((match: any) => ({
-          id: match.id,
-          job_id: match.job_id,
-          professional_id: match.professional_id,
-          status: match.status,
-          created_at: match.created_at,
-          job: {
-            id: match.job_id,
-            title: match.title,
-            description: match.description,
-            service_category: match.service_category,
-            budget_min: match.budget_min,
-            budget_max: match.budget_max,
-            urgency: match.urgency,
-            address: match.address,
-            city: match.city,
-            state: match.state,
-            zip_code: match.zip_code,
-            preferred_date: match.preferred_date,
-            created_at: match.job_created_at,
-            customer: {
-              firstName: match.first_name,
-              lastName: match.last_name,
-              profile_image_url: match.profile_image_url,
-            },
-          },
-        }));
-
-        setJobMatches(transformedMatches);
+        setJobMatches(data.matches || []);
       } else {
         toast.error("Failed to fetch job matches");
       }
@@ -210,29 +181,7 @@ export default function ProfessionalMatches() {
         <meta name="description" content="View and respond to job matches" />
       </Head>
 
-      <div className="min-h-screen bg-gray-50">
-        {/* Navigation */}
-        <nav className="bg-white shadow-sm border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <div className="flex items-center">
-                <Link href="/" className="text-2xl font-bold text-primary-600">
-                  ServiceMatch
-                </Link>
-              </div>
-              <div className="flex items-center space-x-4">
-                <Link
-                  href="/professional/dashboard"
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  Dashboard
-                </Link>
-              </div>
-            </div>
-          </div>
-        </nav>
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
           <div className="mb-8">
             <Link
@@ -442,7 +391,6 @@ export default function ProfessionalMatches() {
             </div>
           )}
         </div>
-      </div>
     </>
   );
 }

@@ -88,33 +88,7 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <div className="min-h-screen bg-white">
-        {/* Navigation */}
-        <nav className="bg-white shadow-sm border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <h1 className="text-2xl font-bold text-primary-600">
-                    ServiceMatch
-                  </h1>
-                </div>
-              </div>
-              <div className="flex items-center space-x-4">
-                <Link
-                  href="/auth/login"
-                  className="text-gray-700 hover:text-primary-600"
-                >
-                  Sign In
-                </Link>
-                <Link href="/auth/register" className="btn-primary">
-                  Get Started
-                </Link>
-              </div>
-            </div>
-          </div>
-        </nav>
-
+      <>
         {/* Hero Section */}
         <section className="relative bg-gradient-to-br from-primary-50 to-primary-100 py-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -305,23 +279,7 @@ export default function Home() {
             </div>
           </div>
         </section>
-
-        {/* Footer */}
-        <footer className="bg-gray-900 text-white py-12">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center">
-              <h3 className="text-2xl font-bold mb-4">ServiceMatch</h3>
-              <p className="text-gray-400 mb-6">
-                The future of home services is here. Video-first, match-based,
-                and built for trust.
-              </p>
-              <div className="text-sm text-gray-500">
-                © 2024 ServiceMatch. All rights reserved.
-              </div>
-            </div>
-          </div>
-        </footer>
-      </div>
+      </>
     </>
   );
 }

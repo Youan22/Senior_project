@@ -2,32 +2,39 @@ const express = require("express");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const db = require("../db");
 const { authenticateToken } = require("../middleware/auth");
+const { getMatchAccess } = require("../lib/matchMembership");
 
 const router = express.Router();
 
-// Create payment intent for match fee
+// Create payment intent for match fee (customer only — payer)
 router.post("/create-payment-intent", authenticateToken, async (req, res) => {
   try {
     const { matchId } = req.body;
 
-    // Get match details
-    const match = await db("matches").where("id", matchId).first();
-
-    if (!match) {
+    const access = await getMatchAccess(db, matchId, req.user.id);
+    if (access.kind === "not_found") {
       return res.status(404).json({ error: "Match not found" });
     }
+    if (access.kind === "forbidden") {
+      return res.status(403).json({ error: "Access denied for this match" });
+    }
+    if (access.role !== "customer") {
+      return res.status(403).json({
+        error: "Only the job owner may create a payment for this match",
+      });
+    }
 
-    // Create payment intent
+    const { match } = access;
+
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(match.match_fee * 100), // Convert to cents
+      amount: Math.round(match.match_fee * 100),
       currency: "usd",
       metadata: {
-        matchId: matchId,
-        userId: req.user.id,
+        matchId: String(matchId),
+        userId: String(req.user.id),
       },
     });
 
-    // Store payment intent in database
     await db("payments").insert({
       match_id: matchId,
       stripe_payment_intent_id: paymentIntent.id,
@@ -44,28 +51,48 @@ router.post("/create-payment-intent", authenticateToken, async (req, res) => {
   }
 });
 
-// Confirm payment
+// Confirm payment (only the customer who owns the job / created the intent)
 router.post("/confirm-payment", authenticateToken, async (req, res) => {
   try {
     const { paymentIntentId } = req.body;
 
-    // Retrieve payment intent from Stripe
+    const payment = await db("payments")
+      .join("matches", "payments.match_id", "matches.id")
+      .join("jobs", "matches.job_id", "jobs.id")
+      .where("payments.stripe_payment_intent_id", paymentIntentId)
+      .select("payments.*", "jobs.customer_id")
+      .first();
+
+    if (!payment) {
+      return res.status(404).json({ error: "Payment not found" });
+    }
+
+    if (payment.customer_id !== req.user.id) {
+      return res.status(403).json({ error: "Access denied for this payment" });
+    }
+
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
 
+    if (
+      paymentIntent.metadata &&
+      paymentIntent.metadata.userId &&
+      paymentIntent.metadata.userId !== String(req.user.id)
+    ) {
+      return res.status(403).json({ error: "Access denied for this payment" });
+    }
+
     if (paymentIntent.status === "succeeded") {
-      // Update payment status in database
       await db("payments")
         .where("stripe_payment_intent_id", paymentIntentId)
         .update({ status: "succeeded" });
 
-      // Update match status
-      const payment = await db("payments")
+      const updated = await db("payments")
         .where("stripe_payment_intent_id", paymentIntentId)
         .first();
 
-      if (payment) {
+      if (updated) {
         await db("matches")
-          .where("id", payment.match_id)
+          .where("id", updated.match_id)
           .update({ status: "accepted" });
       }
 
@@ -79,7 +106,7 @@ router.post("/confirm-payment", authenticateToken, async (req, res) => {
   }
 });
 
-// Get payment history
+// Get payment history (customer's own jobs only — unchanged)
 router.get("/history", authenticateToken, async (req, res) => {
   try {
     const payments = await db("payments")
