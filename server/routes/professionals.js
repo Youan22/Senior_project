@@ -168,6 +168,40 @@ const professionalSchema = Joi.object({
   isAvailable: Joi.boolean(),
 });
 
+function parseJsonArrayLoose(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (_) {
+      // Legacy rows may store comma-separated states like "ID,AL".
+      return value
+        .split(",")
+        .map((v) => v.trim())
+        .filter(Boolean);
+    }
+  }
+  return [];
+}
+
+function parseJsonObjectLoose(value) {
+  if (!value) return {};
+  if (typeof value === "object" && !Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch (_) {
+      return { notes: value };
+    }
+  }
+  return {};
+}
+
 // Get professional profile
 router.get(
   "/profile",
@@ -203,15 +237,9 @@ router.get(
       // Parse JSON fields and ensure proper types
       const parsedProfessional = {
         ...professional,
-        service_areas: professional.service_areas
-          ? JSON.parse(professional.service_areas)
-          : [],
-        certifications: professional.certifications
-          ? JSON.parse(professional.certifications)
-          : [],
-        insurance_info: professional.insurance_info
-          ? JSON.parse(professional.insurance_info)
-          : {},
+        service_areas: parseJsonArrayLoose(professional.service_areas),
+        certifications: parseJsonArrayLoose(professional.certifications),
+        insurance_info: parseJsonObjectLoose(professional.insurance_info),
         rating: professional.rating ? parseFloat(professional.rating) : 0,
         hourly_rate: professional.hourly_rate
           ? parseFloat(professional.hourly_rate)
