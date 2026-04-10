@@ -13,18 +13,19 @@
 ```bash
 # 1. Clone and setup
 git clone <repository-url>
-cd Clone-Thumbtack
+cd ServiceMatch   # or your checkout folder name
 
 # 2. Install dependencies
 npm run install:all
 
 # 3. Setup environment
 cp .env.example .env
-# Edit .env with your database credentials
+# Edit .env: DB_* and JWT_SECRET (see SETUP_GUIDE.md)
 
 # 4. Setup database
-npm run db:migrate
-npm run db:seed
+createdb servicematch_dev   # or your DB_NAME
+cd server && npx knex migrate:latest && cd ..
+# Optional: npx knex seed:run (if seeds exist)
 
 # 5. Start development servers
 npm run dev
@@ -33,19 +34,22 @@ npm run dev
 ## 📁 Project Structure
 
 ```
-Clone-Thumbtack/
+ServiceMatch/
 ├── client/                 # Next.js frontend
-│   ├── components/         # Reusable components
-│   ├── pages/             # Next.js pages
-│   ├── styles/            # CSS and Tailwind
+│   ├── components/
+│   ├── pages/
+│   ├── styles/
 │   └── package.json
-├── server/                # Node.js backend
-│   ├── routes/            # API routes
-│   ├── migrations/        # Database migrations
-│   ├── middleware/        # Auth middleware
+├── server/                 # Node.js backend
+│   ├── routes/
+│   ├── migrations/
+│   ├── middleware/
+│   ├── __tests__/
 │   └── package.json
-├── .env                   # Environment variables
-└── package.json          # Root package.json
+├── scripts/                # Root helper scripts (e.g. optional mobile install)
+├── .env                    # Create from .env.example (not committed)
+├── .env.example
+└── package.json
 ```
 
 ## 🔧 Development Commands

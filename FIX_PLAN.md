@@ -51,25 +51,25 @@ Branch for this work: `hotfix/security-and-config-v2` (replaces deleted `hotfix/
 
 ## Phase 4: Setup / docs
 
-- [ ] Root `install:all` does not require a missing `mobile/` directory.
-- [ ] `.env.example` at repo root with all required keys (no secrets).
-- [ ] README / SETUP match actual repo layout and commands.
-- [ ] Clean clone + documented steps completes install and boot.
+- [x] Root `install:all` does not require a missing `mobile/` directory.
+- [x] `.env.example` at repo root with all required keys (no secrets).
+- [x] README / SETUP match actual repo layout and commands.
+- [x] Clean clone + documented steps completes install and boot.
 
 ---
 
 ## Phase 5: Repo hygiene
 
-- [ ] `node_modules` not tracked; `.gitignore` covers dependencies and build artifacts.
-- [ ] Lockfiles kept; `npm install` / build sanity after cleanup documented or scripted.
+- [x] `node_modules` not tracked; `.gitignore` covers dependencies and build artifacts.
+- [x] Lockfiles kept; `npm install` / build sanity after cleanup documented or scripted.
 
 ---
 
 ## Validation checklist (before close)
 
-- [x] Unauthorized access tests: **401** / **403** as specified (Phase 1 routes).
-- [x] Payment and message endpoints enforce ownership/membership.
-- [ ] Match payloads complete and consistent across consumers.
-- [ ] Frontend uses env-based API URL only.
-- [ ] `npm run install:all` + docs yield successful first-time setup.
-- [ ] App boots: client + server + health endpoint.
+- [x] Unauthorized access tests: **401** / **403** as specified (Phase 1 routes). (`server/__tests__/payments.messages.authz.test.js`)
+- [x] Payment and message endpoints enforce ownership/membership. (same + `server/lib/matchMembership.js`)
+- [x] Match payloads complete and consistent across consumers. (`server/lib/matchesList.js`, `server/__tests__/matchesList.test.js`, `server/routes/matches.js`)
+- [x] Frontend uses env-based API URL only. (`NEXT_PUBLIC_API_URL`, `client/lib/apiUrl.ts` — single default fallback)
+- [x] `npm run install:all` + docs yield successful first-time setup. (`README.md`, `SETUP_GUIDE.md`, `DEVELOPMENT_WORKFLOW.md`)
+- [x] App boots: client + server + health endpoint. (`GET /api/health` in `server/app.js`, `server/__tests__/health.test.js`; `npm run dev` / `npm run build`)

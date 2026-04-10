@@ -16,6 +16,7 @@ import {
 } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
 import ChatModal from "../../components/ChatModal";
+import { apiUrl } from "../../lib/apiUrl";
 
 interface User {
   id: string;
@@ -134,7 +135,7 @@ export default function ProfessionalDashboard() {
       const token = localStorage.getItem("token");
 
       const response = await fetch(
-        "http://localhost:5000/api/professionals/profile",
+        apiUrl("/api/professionals/profile"),
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -173,7 +174,7 @@ export default function ProfessionalDashboard() {
       const token = localStorage.getItem("token");
 
       const response = await fetch(
-        "http://localhost:5000/api/matches/my-matches",
+        apiUrl("/api/matches/my-matches"),
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -288,7 +289,7 @@ export default function ProfessionalDashboard() {
     try {
       const token = localStorage.getItem("token");
       const result = await fetch(
-        `http://localhost:5000/api/matches/${matchId}/${response}`,
+        apiUrl(`/api/matches/${matchId}/${response}`),
         {
           method: "POST",
           headers: {

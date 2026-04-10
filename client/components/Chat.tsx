@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 import { PaperAirplaneIcon } from "@heroicons/react/24/outline";
+import { apiUrl, getApiBaseUrl } from "../lib/apiUrl";
 
 interface Message {
   id: string;
@@ -42,14 +43,11 @@ export default function Chat({ matchId, currentUserId, token }: ChatProps) {
 
   // Initialize socket connection
   useEffect(() => {
-    const newSocket = io(
-      process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000",
-      {
-        auth: {
-          token: token,
-        },
-      }
-    );
+    const newSocket = io(getApiBaseUrl(), {
+      auth: {
+        token: token,
+      },
+    });
 
     newSocket.on("connect", () => {
       console.log("Connected to chat server");
@@ -93,9 +91,7 @@ export default function Chat({ matchId, currentUserId, token }: ChatProps) {
     const loadMessages = async () => {
       try {
         const response = await fetch(
-          `${
-            process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
-          }/api/messages/match/${matchId}`,
+          apiUrl(`/api/messages/match/${matchId}`),
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -128,19 +124,14 @@ export default function Chat({ matchId, currentUserId, token }: ChatProps) {
 
   const markMessagesAsRead = async () => {
     try {
-      await fetch(
-        `${
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
-        }/api/messages/mark-read`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ matchId }),
-        }
-      );
+      await fetch(apiUrl("/api/messages/mark-read"), {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ matchId }),
+      });
     } catch (error) {
       console.error("Failed to mark messages as read:", error);
     }
@@ -154,23 +145,18 @@ export default function Chat({ matchId, currentUserId, token }: ChatProps) {
 
     try {
       // Send via API to store in database
-      const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
-        }/api/messages/send`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            matchId,
-            content: messageContent,
-            messageType: "text",
-          }),
-        }
-      );
+      const response = await fetch(apiUrl("/api/messages/send"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          matchId,
+          content: messageContent,
+          messageType: "text",
+        }),
+      });
 
       if (response.ok) {
         const data = await response.json();

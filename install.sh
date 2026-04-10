@@ -27,6 +27,14 @@ cd server && npm install && cd ..
 echo "📦 Installing client dependencies..."
 cd client && npm install && cd ..
 
+# Optional mobile app
+if [ -f "mobile/package.json" ]; then
+    echo "📦 Installing mobile dependencies..."
+    cd mobile && npm install && cd ..
+else
+    echo "📱 Skipping mobile/: directory not present."
+fi
+
 # Create environment file
 echo "⚙️  Setting up environment configuration..."
 if [ ! -f .env ]; then

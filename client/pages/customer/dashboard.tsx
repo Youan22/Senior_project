@@ -14,6 +14,7 @@ import {
 } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
 import ChatModal from "../../components/ChatModal";
+import { apiUrl } from "../../lib/apiUrl";
 
 interface User {
   id: string;
@@ -97,7 +98,7 @@ export default function CustomerDashboard() {
       const token = localStorage.getItem("token");
       console.log("Token for API call:", token ? "exists" : "missing");
 
-      const response = await fetch("http://localhost:5000/api/jobs/my-jobs", {
+      const response = await fetch(apiUrl("/api/jobs/my-jobs"), {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -143,7 +144,7 @@ export default function CustomerDashboard() {
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        "http://localhost:5000/api/matches/customer",
+        apiUrl("/api/matches/customer"),
         {
           headers: {
             Authorization: `Bearer ${token}`,

@@ -14,6 +14,7 @@ import {
   UserIcon,
 } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
+import { apiUrl } from "../../lib/apiUrl";
 
 interface JobMatch {
   id: string;
@@ -71,7 +72,7 @@ export default function ProfessionalMatches() {
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        "http://localhost:5000/api/matches/my-matches",
+        apiUrl("/api/matches/my-matches"),
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -100,7 +101,7 @@ export default function ProfessionalMatches() {
     try {
       const token = localStorage.getItem("token");
       const result = await fetch(
-        `http://localhost:5000/api/matches/${matchId}/${response}`,
+        apiUrl(`/api/matches/${matchId}/${response}`),
         {
           method: "POST",
           headers: {

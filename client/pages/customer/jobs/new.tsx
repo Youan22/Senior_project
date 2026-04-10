@@ -11,6 +11,7 @@ import {
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
+import { apiUrl } from "../../../lib/apiUrl";
 
 const SERVICE_CATEGORIES = [
   { value: "moving", label: "Moving & Relocation" },
@@ -122,7 +123,7 @@ export default function NewJob() {
 
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:5000/api/jobs", {
+      const response = await fetch(apiUrl("/api/jobs"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

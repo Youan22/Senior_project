@@ -13,6 +13,7 @@ import {
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
+import { apiUrl } from "../../../lib/apiUrl";
 
 interface Job {
   id: string;
@@ -61,7 +62,7 @@ export default function JobDetail() {
   const fetchJob = async () => {
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch(`http://localhost:5000/api/jobs/${id}`, {
+      const response = await fetch(apiUrl(`/api/jobs/${id}`), {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -89,7 +90,7 @@ export default function JobDetail() {
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        `http://localhost:5000/api/jobs/${id}/cancel`,
+        apiUrl(`/api/jobs/${id}/cancel`),
         {
           method: "POST",
           headers: {

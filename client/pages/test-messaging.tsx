@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import Head from "next/head";
+import Link from "next/link";
 import ChatModal from "../components/ChatModal";
 
 export default function TestMessaging() {
@@ -113,18 +114,18 @@ export default function TestMessaging() {
               in first.
             </p>
             <div className="flex space-x-4">
-              <a
+              <Link
                 href="/auth/login"
                 className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors duration-200"
               >
                 Login
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/auth/register"
                 className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors duration-200"
               >
                 Register
-              </a>
+              </Link>
             </div>
           </div>
         )}

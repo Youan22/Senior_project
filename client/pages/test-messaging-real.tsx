@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import Head from "next/head";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import ChatModal from "../components/ChatModal";
 import { motion } from "framer-motion";
+import { apiUrl } from "../lib/apiUrl";
 
 export default function TestMessagingReal() {
   const router = useRouter();
@@ -43,7 +45,7 @@ export default function TestMessagingReal() {
           ? "/api/matches/customer"
           : "/api/matches/my-matches";
 
-      const response = await fetch(`http://localhost:5000${endpoint}`, {
+      const response = await fetch(apiUrl(endpoint), {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -147,26 +149,26 @@ export default function TestMessagingReal() {
                   </p>
                   <div className="flex justify-center space-x-4">
                     {user?.userType === "customer" ? (
-                      <a
+                      <Link
                         href="/customer/jobs/new"
                         className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors duration-200"
                       >
                         Post a Job
-                      </a>
+                      </Link>
                     ) : (
-                      <a
+                      <Link
                         href="/professional/profile/edit"
                         className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors duration-200"
                       >
                         Complete Profile
-                      </a>
+                      </Link>
                     )}
-                    <a
+                    <Link
                       href="/customer/dashboard"
                       className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors duration-200"
                     >
                       Go to Dashboard
-                    </a>
+                    </Link>
                   </div>
                 </div>
               ) : (

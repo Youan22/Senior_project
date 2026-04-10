@@ -8,10 +8,136 @@ const {
 
 const router = express.Router();
 
-// Validation schema
+/**
+ * Accept camelCase (preferred) or legacy snake_case from older clients / cached bundles.
+ */
+function normalizeProfessionalProfileBody(body) {
+  if (!body || typeof body !== "object") {
+    return {};
+  }
+  const b = body;
+  const str = (v) => (v == null ? "" : String(v));
+  const toFiniteNumber = (v, fallback) => {
+    if (v === null || v === undefined || v === "") return fallback;
+    const n = typeof v === "number" ? v : parseFloat(String(v).replace(/,/g, ""));
+    return Number.isFinite(n) ? n : fallback;
+  };
+  const toInt = (v, fallback) => {
+    const n = parseInt(String(v ?? ""), 10);
+    return Number.isFinite(n) ? n : fallback;
+  };
+  const areas = b.serviceAreas ?? b.service_areas;
+  const serviceAreas = Array.isArray(areas) ? areas.map(String) : [];
+
+  let insuranceInfo = b.insuranceInfo ?? b.insurance_info;
+  if (insuranceInfo == null) {
+    insuranceInfo = {};
+  } else if (typeof insuranceInfo === "string" && insuranceInfo.trim()) {
+    insuranceInfo = { notes: insuranceInfo.trim() };
+  } else if (typeof insuranceInfo !== "object" || Array.isArray(insuranceInfo)) {
+    insuranceInfo = {};
+  } else {
+    const rawIns = insuranceInfo;
+    insuranceInfo = {
+      provider: rawIns.provider != null ? String(rawIns.provider) : "",
+      policyNumber:
+        rawIns.policyNumber != null ? String(rawIns.policyNumber) : "",
+      notes: rawIns.notes != null ? String(rawIns.notes) : "",
+    };
+    if (rawIns.coverageAmount != null && rawIns.coverageAmount !== "") {
+      const ca = Number(rawIns.coverageAmount);
+      if (Number.isFinite(ca)) {
+        insuranceInfo.coverageAmount = ca;
+      }
+    }
+  }
+
+  const businessName = str(b.businessName ?? b.business_name).trim();
+  const description = str(b.description ?? b.bio);
+  const serviceCategory = str(b.serviceCategory ?? b.service_category).trim();
+  const hourlyRate = toFiniteNumber(b.hourlyRate ?? b.hourly_rate, undefined);
+  let matchFee = toFiniteNumber(b.matchFee ?? b.match_fee, undefined);
+  if (matchFee === undefined) {
+    matchFee = 25;
+  }
+
+  let isAvailable = b.isAvailable;
+  if (isAvailable === undefined && b.is_available !== undefined) {
+    isAvailable = b.is_available;
+  }
+
+  let certifications = b.certifications;
+  if (!Array.isArray(certifications)) {
+    certifications = [];
+  }
+
+  return {
+    businessName,
+    description,
+    serviceCategory,
+    licenseNumber: str(b.licenseNumber ?? b.license_number),
+    licenseState: str(b.licenseState ?? b.license_state),
+    serviceAreas,
+    hourlyRate,
+    matchFee,
+    yearsExperience: toInt(b.yearsExperience ?? b.years_experience, 0),
+    certifications,
+    insuranceInfo,
+    isAvailable,
+  };
+}
+
+/** Fill gaps from DB row when the client omits fields (stale bundles, partial JSON). */
+function mergeProfessionalProfileFromExisting(normalized, existing) {
+  if (!existing) {
+    return normalized;
+  }
+  const out = { ...normalized };
+  if (!out.businessName && existing.business_name) {
+    out.businessName = String(existing.business_name).trim();
+  }
+  if (!out.serviceCategory && existing.service_category) {
+    out.serviceCategory = String(existing.service_category).trim();
+  }
+  if (
+    (out.hourlyRate === undefined || !Number.isFinite(out.hourlyRate)) &&
+    existing.hourly_rate != null &&
+    existing.hourly_rate !== ""
+  ) {
+    const h = parseFloat(existing.hourly_rate);
+    if (Number.isFinite(h)) {
+      out.hourlyRate = h;
+    }
+  }
+  if (
+    (out.matchFee === undefined || !Number.isFinite(out.matchFee)) &&
+    existing.match_fee != null &&
+    existing.match_fee !== ""
+  ) {
+    const m = parseFloat(existing.match_fee);
+    if (Number.isFinite(m)) {
+      out.matchFee = m;
+    }
+  }
+  if (!out.serviceAreas || out.serviceAreas.length === 0) {
+    if (existing.service_areas) {
+      try {
+        const parsed = JSON.parse(existing.service_areas);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          out.serviceAreas = parsed.map(String);
+        }
+      } catch (_) {
+        /* ignore */
+      }
+    }
+  }
+  return out;
+}
+
+// Validation schema (after normalization)
 const professionalSchema = Joi.object({
-  businessName: Joi.string().required(),
-  description: Joi.string().required(),
+  businessName: Joi.string().trim().min(1).required(),
+  description: Joi.string().allow("").default(""),
   serviceCategory: Joi.string()
     .valid(
       "moving",
@@ -28,16 +154,18 @@ const professionalSchema = Joi.object({
     .required(),
   licenseNumber: Joi.string().allow(""),
   licenseState: Joi.string().allow(""),
-  serviceAreas: Joi.array().items(Joi.string()).required(),
-  hourlyRate: Joi.number().min(0),
+  serviceAreas: Joi.array().items(Joi.string()).min(1).required(),
+  hourlyRate: Joi.number().min(0).required(),
   matchFee: Joi.number().min(0).required(),
-  yearsExperience: Joi.number().min(0),
-  certifications: Joi.array().items(Joi.string()),
+  yearsExperience: Joi.number().min(0).default(0),
+  certifications: Joi.array().items(Joi.string()).default([]),
   insuranceInfo: Joi.object({
-    provider: Joi.string(),
-    policyNumber: Joi.string(),
+    provider: Joi.string().allow(""),
+    policyNumber: Joi.string().allow(""),
     coverageAmount: Joi.number(),
-  }),
+    notes: Joi.string().allow(""),
+  }).default({}),
+  isAvailable: Joi.boolean(),
 });
 
 // Get professional profile
@@ -114,9 +242,43 @@ router.put(
   requireProfessional,
   async (req, res) => {
     try {
-      const { error, value } = professionalSchema.validate(req.body);
+      const existingProfessional = await db("professionals")
+        .where("user_id", req.user.id)
+        .first();
+
+      let normalized = normalizeProfessionalProfileBody(
+        req.body && typeof req.body === "object" ? req.body : {}
+      );
+      normalized = mergeProfessionalProfileFromExisting(
+        normalized,
+        existingProfessional
+      );
+
+      const { error, value } = professionalSchema.validate(normalized, {
+        abortEarly: false,
+        stripUnknown: true,
+        convert: true,
+      });
       if (error) {
-        return res.status(400).json({ error: error.details[0].message });
+        const messages = error.details.map((d) => d.message).join("; ");
+        if (process.env.NODE_ENV !== "production") {
+          console.error("[PUT /api/professionals/profile] validation failed", {
+            bodyKeys: req.body && Object.keys(req.body),
+            normalized,
+            joi: error.details,
+          });
+        }
+        const payload = {
+          error: error.details[0].message,
+          details: messages,
+        };
+        if (process.env.NODE_ENV !== "production") {
+          payload.issues = error.details.map((d) => ({
+            path: d.path.join("."),
+            message: d.message,
+          }));
+        }
+        return res.status(400).json(payload);
       }
 
       const {
@@ -131,32 +293,32 @@ router.put(
         yearsExperience,
         certifications,
         insuranceInfo,
+        isAvailable,
       } = value;
-
-      // Check if professional profile exists
-      const existingProfessional = await db("professionals")
-        .where("user_id", req.user.id)
-        .first();
 
       let professional;
       if (existingProfessional) {
         // Update existing profile
+        const updateRow = {
+          business_name: businessName,
+          description,
+          service_category: serviceCategory,
+          license_number: licenseNumber,
+          license_state: licenseState,
+          service_areas: JSON.stringify(serviceAreas),
+          hourly_rate: hourlyRate,
+          match_fee: matchFee,
+          years_experience: yearsExperience,
+          certifications: JSON.stringify(certifications || []),
+          insurance_info: JSON.stringify(insuranceInfo || {}),
+          updated_at: new Date(),
+        };
+        if (typeof isAvailable === "boolean") {
+          updateRow.is_available = isAvailable;
+        }
         [professional] = await db("professionals")
           .where("user_id", req.user.id)
-          .update({
-            business_name: businessName,
-            description,
-            service_category: serviceCategory,
-            license_number: licenseNumber,
-            license_state: licenseState,
-            service_areas: JSON.stringify(serviceAreas),
-            hourly_rate: hourlyRate,
-            match_fee: matchFee,
-            years_experience: yearsExperience,
-            certifications: JSON.stringify(certifications || []),
-            insurance_info: JSON.stringify(insuranceInfo || {}),
-            updated_at: new Date(),
-          })
+          .update(updateRow)
           .returning("*");
       } else {
         // Create new profile
@@ -174,6 +336,8 @@ router.put(
             years_experience: yearsExperience,
             certifications: JSON.stringify(certifications || []),
             insurance_info: JSON.stringify(insuranceInfo || {}),
+            is_available:
+              typeof isAvailable === "boolean" ? isAvailable : true,
           })
           .returning("*");
       }
