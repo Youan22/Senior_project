@@ -5,6 +5,7 @@ import { useRouter } from 'next/router'
 import { motion } from 'framer-motion'
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
+import { apiUrl } from '../../lib/apiUrl'
 
 export default function Register() {
   const router = useRouter()
@@ -43,7 +44,7 @@ export default function Register() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/register', {
+      const response = await fetch(apiUrl('/api/auth/register'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

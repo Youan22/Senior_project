@@ -10,7 +10,7 @@
     "mobile:dev": "cd mobile && npm run start",
     "build": "cd client && npm run build",
     "start": "cd server && npm start",
-    "install:all": "npm install && cd server && npm install && cd ../client && npm install && cd ../mobile && npm install"
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install && cd .. && node scripts/install-mobile-if-present.cjs"
   },
   "keywords": [
     "home-services",

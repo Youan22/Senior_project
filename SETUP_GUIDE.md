@@ -1,294 +1,183 @@
-# ServiceMatch Setup Guide
+# ServiceMatch setup guide
 
-# ServiceMatch Setup Guide
+## Current features (high level)
 
-## 📋 Current Features
+- User authentication (customer and professional)
+- Customer jobs and dashboards
+- Professional profile, matches, and dashboards
+- Real-time messaging (Socket.io)
+- PostgreSQL schema via Knex migrations
+- REST APIs for core flows; Stripe when keys are set
 
-### ✅ Completed Features
+## Quick start
 
-- **User Authentication**: Login/Register for customers and professionals
-- **Customer Dashboard**: Job posting and management
-- **Professional Dashboard**: Match viewing and profile management
-- **Real-time Messaging**: Socket.io-based chat system
-- **Database Integration**: PostgreSQL with Knex.js migrations
-- **API Endpoints**: RESTful APIs for all core functionality
+### 1. Install dependencies
 
-### 🔄 In Progress
-
-- Video upload system (next priority)
-- Payment integration
-- Enhanced matching algorithm
-
-## 🚀 Quick Start
-
-### 1. Install Dependencies
+From the **repository root**:
 
 ```bash
-# Install all dependencies
 npm run install:all
+```
 
-# Or install individually
+This installs:
+
+- Root (e.g. `concurrently`)
+- `server/` and `client/`
+- `mobile/` **only if** `mobile/package.json` exists
+
+To install manually:
+
+```bash
 npm install
-cd server && npm install
-cd ../client && npm install
+cd server && npm install && cd ..
+cd client && npm install && cd ..
+# Optional, if present:
+# cd mobile && npm install && cd ..
 ```
 
-### 2. Environment Setup
+### 2. Environment variables
+
+Create a single **root** `.env` (the server loads `../.env` relative to `server/`):
 
 ```bash
-# Copy environment template
 cp .env.example .env
-
-# Edit the .env file with your configuration
-nano .env
 ```
 
-### 3. Database Setup
+Edit `.env`. Minimum for local API + migrations:
+
+- `DB_*` — PostgreSQL connection
+- `JWT_SECRET` — strong random string
+
+See **`.env.example`** for all keys and comments. Optional: `STRIPE_SECRET_KEY`, `CLIENT_URL` / `CLIENT_URLS`. Set **`NEXT_PUBLIC_API_URL`** if the API is not at `http://localhost:5000`.
+
+### 3. Database
+
+Ensure PostgreSQL is running, then create the database (name should match `DB_NAME` in `.env`, default `servicematch_dev`):
 
 ```bash
-# Make sure PostgreSQL is running
-# Create database
 createdb servicematch_dev
-
-# Run migrations
 cd server
 npx knex migrate:latest
+cd ..
 ```
 
-### 4. Start Development
+**macOS (Homebrew):** often `brew services start postgresql@16` (version may vary). If `psql` connects as your macOS user, set `DB_USER` in `.env` to that user or create a `postgres` role as needed.
+
+**Linux:** e.g. `sudo service postgresql start` (distribution-dependent).
+
+### 4. Start development
+
+From the repository root:
 
 ```bash
-# Start all services
 npm run dev
-
-# Or start individually
-npm run server:dev    # Backend on :5000
-npm run client:dev    # Frontend on :3000
 ```
 
-## 🔧 VS Code Setup
+Runs the API and Next.js together via `concurrently`.
 
-### Required Extensions
+Individually:
 
-Install these VS Code extensions for the best development experience:
+```bash
+npm run server:dev    # backend (default :5000)
+npm run client:dev    # frontend (default :3000)
+```
 
-1. **Tailwind CSS IntelliSense** (`bradlc.vscode-tailwindcss`)
-2. **Prettier** (`esbenp.prettier-vscode`)
-3. **TypeScript** (`ms-vscode.vscode-typescript-next`)
+If you have a `mobile/` app:
 
-### VS Code Settings
+```bash
+npm run mobile:dev
+```
 
-The project includes `.vscode/settings.json` with:
+## VS Code
 
-- CSS validation disabled for Tailwind
-- Tailwind IntelliSense configuration
+Recommended extensions (see also `client/.vscode/extensions.json` if present):
+
+- Tailwind CSS IntelliSense (`bradlc.vscode-tailwindcss`)
+- Prettier (`esbenp.prettier-vscode`)
 - TypeScript support
 
-## 🎨 CSS & Styling
+Project/editor hints may live under `client/.vscode/`.
 
-### Tailwind CSS Configuration
+## Styling (client)
 
-- **Config**: `client/tailwind.config.js`
-- **PostCSS**: `client/postcss.config.js`
-- **Global Styles**: `client/styles/globals.css`
+- Tailwind: `client/tailwind.config.js`
+- PostCSS: `client/postcss.config.js`
+- Globals: `client/styles/globals.css`
 
-### CSS Linting
+If the project defines a CSS lint script:
 
 ```bash
-# Fix CSS linting issues
-cd client
-npm run lint:css
+cd client && npm run lint:css
 ```
 
-## 🗄️ Database
-
-### Schema
-
-- **Users**: Customer and professional accounts
-- **Professionals**: Business profiles and service areas
-- **Jobs**: Customer job postings
-- **Matches**: Swipe-based connections
-- **Messages**: Real-time chat
-- **Payments**: Stripe payment records
-
-### Migrations
+## Database maintenance
 
 ```bash
 cd server
-npx knex migrate:latest    # Run migrations
-npx knex migrate:rollback # Rollback last migration
-npx knex seed:run        # Run seed data
+npx knex migrate:latest
+npx knex migrate:rollback
+npx knex seed:run   # if seeds exist
 ```
 
-## 🔐 Environment Variables
+## Environment variables (reference)
 
-### Required Variables
+| Area | Variables |
+|------|-----------|
+| Database | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` |
+| Auth | `JWT_SECRET` |
+| Server | `PORT`, `NODE_ENV` |
+| CORS / Socket.io | `CLIENT_URL`, optional `CLIENT_URLS` (comma-separated) |
+| Client (browser) | `NEXT_PUBLIC_API_URL` — API origin for all `fetch` and Socket.io (default `http://localhost:5000` in `client/lib/apiUrl.ts`) |
+| Payments | `STRIPE_SECRET_KEY` |
+| AWS (future / uploads) | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_S3_BUCKET` |
 
-```env
-# Database
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=servicematch_dev
-DB_USER=postgres
-DB_PASSWORD=password
+Copy from `.env.example` and adjust for your machine.
 
-# JWT
-JWT_SECRET=your-super-secret-jwt-key
+## Troubleshooting
 
-# Server
-PORT=5000
-NODE_ENV=development
-CLIENT_URL=http://localhost:3000
+### CSS / Tailwind in the editor
 
-# AWS S3 (for video uploads)
-AWS_ACCESS_KEY_ID=your-aws-key
-AWS_SECRET_ACCESS_KEY=your-aws-secret
-AWS_REGION=us-west-2
-AWS_S3_BUCKET=servicematch-videos
+If you see unknown `@tailwind` warnings, install the Tailwind extension and restart the editor, or run any CSS lint fix script defined in `client/package.json`.
 
-# Stripe (for payments)
-STRIPE_SECRET_KEY=sk_test_your-key
-STRIPE_PUBLISHABLE_KEY=pk_test_your-key
-```
+### Database connection errors
 
-## 🚨 Troubleshooting
+- Confirm PostgreSQL is running and `DB_*` in **root** `.env` matches how you connect with `psql`.
+- Remember: both the running server and `npx knex` use the **repository root** `.env` (not only `server/.env`).
 
-### CSS Linting Issues
-
-If you see "Unknown at rule @tailwind" errors:
-
-1. **Install Tailwind CSS IntelliSense extension**
-2. **Restart VS Code**
-3. **Run CSS linting fix**:
-   ```bash
-   cd client
-   npm run lint:css
-   ```
-
-### Database Connection Issues
+### Port conflicts
 
 ```bash
-# Check PostgreSQL is running
-brew services start postgresql  # macOS
-sudo service postgresql start   # Linux
-
-# Test connection
-psql -h localhost -U postgres -d servicematch_dev
-```
-
-### Port Conflicts
-
-```bash
-# Check what's using port 3000 or 5000
 lsof -i :3000
 lsof -i :5000
-
-# Kill processes if needed
-kill -9 <PID>
+# stop the listed process if needed
 ```
 
-## 📱 Development Workflow
-
-### Backend Development
+## Testing
 
 ```bash
-cd server
-npm run dev  # Auto-restart on changes
+cd server && npm test
 ```
 
-### Frontend Development
+Add or run client tests only if defined in `client/package.json`.
+
+## Repository hygiene
+
+- Do not commit `node_modules/` or build output such as `client/.next/`; both are ignored via `.gitignore`.
+- Keep **`package-lock.json`** files (root, `client/`, `server/`) in version control; do not commit `yarn.lock` or `pnpm-lock.yaml` unless the project standardizes on those tools.
+- After a fresh clone or after deleting `node_modules`, sanity-check:
 
 ```bash
-cd client
-npm run dev  # Hot reload enabled
-```
-
-### Full Stack Development
-
-```bash
-# From project root
-npm run dev  # Runs both server and client
-```
-
-## 🧪 Testing
-
-### Backend Tests
-
-```bash
-cd server
-npm test
-```
-
-### Frontend Tests
-
-```bash
-cd client
-npm test
-```
-
-## 📦 Production Build
-
-### Build Frontend
-
-```bash
-cd client
+npm run install:all
+cd server && npm test && cd ..
 npm run build
 ```
 
-### Start Production Server
+## Production notes
 
-```bash
-cd server
-npm start
-```
-
-## 🔍 Debugging
-
-### Backend Debugging
-
-- Check server logs in terminal
-- Use `console.log()` for debugging
-- Check database connections
-
-### Frontend Debugging
-
-- Use browser dev tools
-- Check Network tab for API calls
-- Use React DevTools extension
-
-### Database Debugging
-
-```bash
-# Connect to database
-psql -h localhost -U postgres -d servicematch_dev
-
-# Check tables
-\dt
-
-# Check specific table
-SELECT * FROM users LIMIT 5;
-```
-
-## 🚀 Deployment
-
-### Environment Setup
-
-1. Set `NODE_ENV=production`
-2. Configure production database
-3. Set up AWS S3 bucket
-4. Configure Stripe keys
-5. Set up domain and SSL
-
-### Build for Production
-
-```bash
-# Build frontend
-cd client && npm run build
-
-# Start production server
-cd server && npm start
-```
+- Set `NODE_ENV=production` and production `DB_*`, `JWT_SECRET`, `CLIENT_URL`, Stripe keys, and AWS as needed.
+- Build the web app: `cd client && npm run build`
+- Start the API: `cd server && npm start`
 
 ---
 
-**Need help?** Check the project documentation or create an issue in the repository.
+For questions, open an issue on the repository or follow **DEVELOPMENT_WORKFLOW.md**.

@@ -14,6 +14,7 @@ import {
   XCircleIcon,
 } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
+import { apiUrl } from "../../../lib/apiUrl";
 
 interface Job {
   id: string;
@@ -58,7 +59,7 @@ export default function JobsList() {
   const fetchJobs = async () => {
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:5000/api/jobs/my-jobs", {
+      const response = await fetch(apiUrl("/api/jobs/my-jobs"), {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -85,7 +86,7 @@ export default function JobsList() {
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        `http://localhost:5000/api/jobs/${jobId}/cancel`,
+        apiUrl(`/api/jobs/${jobId}/cancel`),
         {
           method: "POST",
           headers: {

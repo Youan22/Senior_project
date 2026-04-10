@@ -14,6 +14,7 @@ import {
   XCircleIcon,
 } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
+import { apiUrl } from "../../../lib/apiUrl";
 
 const SERVICE_CATEGORIES = [
   { value: "moving", label: "Moving & Relocation" },
@@ -109,6 +110,7 @@ export default function EditProfessionalProfile() {
     service_category: "",
     bio: "",
     hourly_rate: "",
+    match_fee: "",
     years_experience: "",
     service_areas: [] as string[],
     is_available: true,
@@ -140,7 +142,7 @@ export default function EditProfessionalProfile() {
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        "http://localhost:5000/api/professionals/profile",
+        apiUrl("/api/professionals/profile"),
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -152,18 +154,32 @@ export default function EditProfessionalProfile() {
         const data = await response.json();
         const profile = data.professional;
 
+        const insuranceRaw = profile.insurance_info;
+        let insuranceText = "";
+        if (typeof insuranceRaw === "string") {
+          insuranceText = insuranceRaw;
+        } else if (
+          insuranceRaw &&
+          typeof insuranceRaw === "object" &&
+          "notes" in insuranceRaw
+        ) {
+          insuranceText = String((insuranceRaw as { notes?: string }).notes || "");
+        }
+
         setFormData({
           business_name: profile.business_name || "",
           service_category: profile.service_category || "",
-          bio: profile.bio || "",
+          bio: profile.description || profile.bio || "",
           hourly_rate: profile.hourly_rate?.toString() || "",
+          match_fee:
+            profile.match_fee != null ? String(profile.match_fee) : "25",
           years_experience: profile.years_experience?.toString() || "",
           service_areas: profile.service_areas || [],
           is_available: profile.is_available ?? true,
           phone: profile.phone || "",
           website: profile.website || "",
           license_number: profile.license_number || "",
-          insurance_info: profile.insurance_info || "",
+          insurance_info: insuranceText,
         });
       } else {
         toast.error("Failed to fetch profile");
@@ -231,41 +247,73 @@ export default function EditProfessionalProfile() {
       return;
     }
 
+    if (formData.service_areas.length === 0) {
+      toast.error("Select at least one service area (state)");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       const token = localStorage.getItem("token");
+      const insuranceNotes = formData.insurance_info.trim();
+      const hourlyRate = parseFloat(formData.hourly_rate);
+      const matchFeeRaw = parseFloat(formData.match_fee);
+      const payload = {
+        businessName: formData.business_name.trim(),
+        description: formData.bio.trim(),
+        serviceCategory: formData.service_category,
+        licenseNumber: formData.license_number.trim() || "",
+        licenseState: "",
+        serviceAreas: formData.service_areas,
+        hourlyRate: Number.isFinite(hourlyRate) ? hourlyRate : 0,
+        matchFee: Number.isFinite(matchFeeRaw) ? matchFeeRaw : 25,
+        yearsExperience: (() => {
+          const y = parseInt(formData.years_experience, 10);
+          return Number.isFinite(y) ? y : 0;
+        })(),
+        certifications: [] as string[],
+        insuranceInfo: insuranceNotes ? { notes: insuranceNotes } : {},
+        isAvailable: formData.is_available,
+      };
+
       const response = await fetch(
-        "http://localhost:5000/api/professionals/profile",
+        apiUrl("/api/professionals/profile"),
         {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            business_name: formData.business_name,
-            service_category: formData.service_category,
-            bio: formData.bio,
-            hourly_rate: parseFloat(formData.hourly_rate),
-            years_experience: parseInt(formData.years_experience) || 0,
-            service_areas: formData.service_areas,
-            is_available: formData.is_available,
-            phone: formData.phone,
-            website: formData.website,
-            license_number: formData.license_number,
-            insurance_info: formData.insurance_info,
-          }),
+          body: JSON.stringify(payload),
         }
       );
 
-      const data = await response.json();
+      const rawText = await response.text();
+      let data: {
+        error?: string;
+        details?: string;
+        issues?: { path: string; message: string }[];
+      } = {};
+      try {
+        data = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        console.error("Profile update: non-JSON response", rawText);
+      }
 
       if (response.ok) {
         toast.success("Profile updated successfully!");
         router.push("/professional/dashboard");
       } else {
-        toast.error(data.error || "Failed to update profile");
+        console.error("Profile update failed", response.status, data);
+        const issueLine =
+          Array.isArray(data.issues) && data.issues.length > 0
+            ? data.issues.map((i) => `${i.path}: ${i.message}`).join(" · ")
+            : "";
+        const msg = [data.error, data.details, issueLine]
+          .filter(Boolean)
+          .join(" — ");
+        toast.error(msg || `Failed to update profile (${response.status})`);
       }
     } catch (error) {
       toast.error("Network error. Please try again.");
@@ -322,26 +370,27 @@ export default function EditProfessionalProfile() {
                   Business Information
                 </h3>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label
-                      htmlFor="business_name"
-                      className="block text-sm font-medium text-gray-700 mb-2"
-                    >
-                      Business Name *
-                    </label>
-                    <input
-                      type="text"
-                      id="business_name"
-                      name="business_name"
-                      value={formData.business_name}
-                      onChange={handleChange}
-                      placeholder="Your Business Name"
-                      className="input-field"
-                      required
-                    />
-                  </div>
+                <div>
+                  <label
+                    htmlFor="business_name"
+                    className="block text-sm font-medium text-gray-700 mb-2"
+                  >
+                    Business Name *
+                  </label>
+                  <input
+                    type="text"
+                    id="business_name"
+                    name="business_name"
+                    value={formData.business_name}
+                    onChange={handleChange}
+                    placeholder="Your business or trade name"
+                    className="input-field"
+                    required
+                    autoComplete="organization"
+                  />
+                </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label
                       htmlFor="service_category"
@@ -416,6 +465,30 @@ export default function EditProfessionalProfile() {
                   </div>
 
                   <div>
+                    <label
+                      htmlFor="match_fee"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
+                      Match fee ($) *
+                    </label>
+                    <input
+                      type="number"
+                      id="match_fee"
+                      name="match_fee"
+                      value={formData.match_fee}
+                      onChange={handleChange}
+                      placeholder="25"
+                      min="0"
+                      step="0.01"
+                      className="input-field"
+                      required
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Fee charged when you match with a customer on a job.
+                    </p>
+                  </div>
+
+                  <div className="md:col-span-2">
                     <label
                       htmlFor="years_experience"
                       className="block text-sm font-medium text-gray-700 mb-2"
