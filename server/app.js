@@ -22,18 +22,22 @@ function createApp() {
   app.use(helmet());
   app.use(compression());
 
-  const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-  });
-  app.use(limiter);
-
+  // Apply CORS before rate limiting so browsers always receive CORS headers,
+  // including on preflight and error responses.
   app.use(
     cors({
       origin: createExpressCorsOrigin(),
       credentials: true,
     })
   );
+
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    // Never rate-limit CORS preflight checks.
+    skip: (req) => req.method === "OPTIONS",
+  });
+  app.use(limiter);
 
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));

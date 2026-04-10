@@ -37,6 +37,7 @@ interface Professional {
   is_verified: boolean;
   is_available: boolean;
   profile_image_url?: string;
+  description?: string;
   bio?: string;
   service_areas: string[];
 }
@@ -488,6 +489,15 @@ export default function ProfessionalDashboard() {
                     )}
                   </div>
                 </div>
+              </div>
+
+              <div className="mt-6 pt-6 border-t border-gray-100">
+                <p className="text-xl font-semibold text-gray-900 mb-2">
+                  Business Description
+                </p>
+                <p className="text-gray-900 leading-relaxed">
+                  {professional.description || professional.bio || "No business description added yet."}
+                </p>
               </div>
             </motion.div>
           )}

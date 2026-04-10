@@ -1,6 +1,10 @@
 const db = require("../db");
 
 class MatchingService {
+  isDemoMode() {
+    return process.env.NODE_ENV !== "production";
+  }
+
   // Generate matches for a job
   async generateMatches(jobId) {
     try {
@@ -35,20 +39,27 @@ class MatchingService {
     const { service_category, city, state, budget_min, budget_max, urgency } =
       job;
 
+    const demoMode = this.isDemoMode();
     let query = db("professionals")
       .join("users", "professionals.user_id", "users.id")
       .where("professionals.service_category", service_category)
-      .where("professionals.is_verified", true)
       .where("professionals.is_available", true)
       .where("users.is_active", true);
 
+    // In production we require verified professionals only.
+    if (!demoMode) {
+      query = query.where("professionals.is_verified", true);
+    }
+
     // Filter by service areas (zip codes or cities)
-    // Note: service_areas is stored as JSON string, so we need to parse it
-    query = query.where(function () {
-      this.whereRaw("service_areas::text LIKE ?", [`%"${city}"%`])
-        .orWhereRaw("service_areas::text LIKE ?", [`%"${state}"%`])
-        .orWhereRaw("service_areas::text LIKE ?", [`%"${job.zip_code}"%`]);
-    });
+    // In demo mode, allow wider discovery even if service_areas are empty/legacy.
+    if (!demoMode) {
+      query = query.where(function () {
+        this.whereRaw("service_areas::text LIKE ?", [`%"${city}"%`])
+          .orWhereRaw("service_areas::text LIKE ?", [`%"${state}"%`])
+          .orWhereRaw("service_areas::text LIKE ?", [`%"${job.zip_code}"%`]);
+      });
+    }
 
     // Budget filtering
     if (budget_min && budget_max) {
