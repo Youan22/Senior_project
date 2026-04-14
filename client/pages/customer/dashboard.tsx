@@ -42,6 +42,8 @@ export default function CustomerDashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [matches, setMatches] = useState<any[]>([]);
+  const [unreadByMatch, setUnreadByMatch] = useState<Record<string, number>>({});
+  const [totalUnread, setTotalUnread] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [chatModal, setChatModal] = useState<{
     isOpen: boolean;
@@ -90,7 +92,17 @@ export default function CustomerDashboard() {
     setUser(parsedUser);
     fetchJobs();
     fetchMatches();
+    fetchUnreadSummary();
   }, [router]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        fetchUnreadSummary();
+      }
+    }, 30000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const fetchJobs = async () => {
     try {
@@ -154,15 +166,70 @@ export default function CustomerDashboard() {
 
       if (response.ok) {
         const data = await response.json();
-        setMatches(data.matches || []);
+        const list = data.matches || [];
+        setMatches(list);
+        setStats((prev) => ({ ...prev, totalMatches: list.length }));
       }
     } catch (error) {
       console.error("Failed to fetch matches:", error);
     }
   };
 
+  const handleCustomerDecision = async (
+    matchId: string,
+    action: "like" | "pass"
+  ) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(apiUrl(`/api/matches/${matchId}/swipe`), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ action }),
+      });
+
+      if (!response.ok) {
+        toast.error("Failed to update match decision");
+        return;
+      }
+
+      toast.success(action === "like" ? "Match accepted" : "Match declined");
+      fetchMatches();
+    } catch (error) {
+      console.error("Failed to update customer match decision:", error);
+      toast.error("Network error");
+    }
+  };
+
+  const fetchUnreadSummary = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(apiUrl("/api/messages/unread-summary"), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUnreadByMatch(data.byMatch || {});
+        setTotalUnread(data.totalUnread || 0);
+      }
+    } catch (error) {
+      console.error("Failed to fetch unread summary:", error);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
+      case "pending":
+        return "bg-yellow-100 text-yellow-800";
+      case "accepted":
+        return "bg-green-100 text-green-800";
+      case "declined":
+        return "bg-red-100 text-red-800";
       case "open":
         return "bg-yellow-100 text-yellow-800";
       case "matched":
@@ -221,6 +288,7 @@ export default function CustomerDashboard() {
       otherUserName: "",
       jobTitle: "",
     });
+    fetchUnreadSummary();
   };
 
   if (isLoading) {
@@ -314,7 +382,14 @@ export default function CustomerDashboard() {
               className="bg-white rounded-lg shadow p-6"
             >
               <div className="flex items-center">
-                <EyeIcon className="h-8 w-8 text-blue-600" />
+                <div className="relative">
+                  <EyeIcon className="h-8 w-8 text-blue-600" />
+                  {totalUnread > 0 && (
+                    <span className="absolute -top-2 -right-2 min-w-[1.25rem] h-5 px-1 rounded-full bg-red-600 text-white text-[10px] leading-5 text-center font-semibold">
+                      {totalUnread > 99 ? "99+" : totalUnread}
+                    </span>
+                  )}
+                </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Matches</p>
                   <p className="text-2xl font-bold text-gray-900">
@@ -390,21 +465,58 @@ export default function CustomerDashboard() {
                             </span>
                             <span>Matched {formatDate(match.created_at)}</span>
                           </div>
+                          {match.status === "pending" && (
+                            <p className="mt-2 text-xs text-gray-500">
+                              {match.customer_swiped
+                                ? "You accepted. Waiting for professional decision."
+                                : "Review this match and accept or decline."}
+                            </p>
+                          )}
                         </div>
                         <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() =>
-                              openChat(
-                                match.id,
-                                `${match.professional.firstName} ${match.professional.lastName}`,
-                                match.job.title
-                              )
-                            }
-                            className="bg-primary-600 text-white px-3 py-1 rounded-lg hover:bg-primary-700 transition-colors duration-200 flex items-center"
-                          >
-                            <ChatBubbleLeftRightIcon className="h-4 w-4 mr-1" />
-                            Message
-                          </button>
+                          {match.status === "pending" && !match.customer_swiped && (
+                            <>
+                              <button
+                                onClick={() =>
+                                  handleCustomerDecision(match.id, "like")
+                                }
+                                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg transition-colors duration-200"
+                              >
+                                Accept
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleCustomerDecision(match.id, "pass")
+                                }
+                                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg transition-colors duration-200"
+                              >
+                                Decline
+                              </button>
+                            </>
+                          )}
+
+                          {match.status === "accepted" && (
+                            <button
+                              onClick={() =>
+                                openChat(
+                                  match.id,
+                                  `${match.professional.firstName} ${match.professional.lastName}`,
+                                  match.job.title
+                                )
+                              }
+                              className="relative bg-primary-600 text-white px-3 py-1 rounded-lg hover:bg-primary-700 transition-colors duration-200 flex items-center"
+                            >
+                              <ChatBubbleLeftRightIcon className="h-4 w-4 mr-1" />
+                              Message
+                              {(unreadByMatch[match.id] || 0) > 0 && (
+                                <span className="absolute -top-2 -right-2 min-w-[1.25rem] h-5 px-1 rounded-full bg-red-600 text-white text-[10px] leading-5 text-center font-semibold">
+                                  {unreadByMatch[match.id] > 99
+                                    ? "99+"
+                                    : unreadByMatch[match.id]}
+                                </span>
+                              )}
+                            </button>
+                          )}
                           <Link
                             href={`/customer/jobs/${match.job.id}`}
                             className="btn-secondary flex items-center"

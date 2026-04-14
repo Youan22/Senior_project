@@ -5,6 +5,41 @@ const { getMatchAccess } = require("../lib/matchMembership");
 
 const router = express.Router();
 
+// Get unread message summary for current user
+router.get("/unread-summary", authenticateToken, async (req, res) => {
+  try {
+    const rows = await db("messages")
+      .join("matches", "messages.match_id", "matches.id")
+      .join("jobs", "matches.job_id", "jobs.id")
+      .join("professionals", "matches.professional_id", "professionals.id")
+      .where("messages.is_read", false)
+      .whereNot("messages.sender_id", req.user.id)
+      .andWhere(function () {
+        this.where("jobs.customer_id", req.user.id).orWhere(
+          "professionals.user_id",
+          req.user.id
+        );
+      })
+      .groupBy("messages.match_id")
+      .select("messages.match_id")
+      .count("* as unread_count");
+
+    const byMatch = {};
+    let totalUnread = 0;
+
+    for (const row of rows) {
+      const count = parseInt(row.unread_count, 10) || 0;
+      byMatch[row.match_id] = count;
+      totalUnread += count;
+    }
+
+    res.json({ totalUnread, byMatch });
+  } catch (error) {
+    console.error("Get unread summary error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // Get messages for a match
 router.get("/match/:matchId", authenticateToken, async (req, res) => {
   try {
@@ -17,6 +52,11 @@ router.get("/match/:matchId", authenticateToken, async (req, res) => {
     }
     if (access.kind === "forbidden") {
       return res.status(403).json({ error: "Access denied for this match" });
+    }
+    if (access.match.status !== "accepted") {
+      return res.status(403).json({
+        error: "Messaging is available after both customer and professional accept the match",
+      });
     }
 
     const offset = (page - 1) * limit;
@@ -51,6 +91,11 @@ router.post("/send", authenticateToken, async (req, res) => {
     }
     if (access.kind === "forbidden") {
       return res.status(403).json({ error: "Access denied for this match" });
+    }
+    if (access.match.status !== "accepted") {
+      return res.status(403).json({
+        error: "Messaging is available after both customer and professional accept the match",
+      });
     }
 
     const [message] = await db("messages")
@@ -93,6 +138,11 @@ router.put("/mark-read", authenticateToken, async (req, res) => {
     }
     if (access.kind === "forbidden") {
       return res.status(403).json({ error: "Access denied for this match" });
+    }
+    if (access.match.status !== "accepted") {
+      return res.status(403).json({
+        error: "Messaging is available after both customer and professional accept the match",
+      });
     }
 
     await db("messages")

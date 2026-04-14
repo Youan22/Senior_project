@@ -87,10 +87,14 @@ router.post(
       }
 
       // Update match status
-      const updateData = { customer_swiped: true };
+      const updateData = {
+        customer_swiped: true,
+        updated_at: new Date(),
+      };
 
       if (action === "like") {
-        updateData.status = "accepted";
+        // Mutual acceptance required: customer + professional.
+        updateData.status = match.professional_swiped ? "accepted" : "pending";
       } else {
         updateData.status = "declined";
       }
@@ -289,7 +293,8 @@ router.post(
 
       // Update match status
       await db("matches").where("id", matchId).update({
-        status: "accepted",
+        // Mutual acceptance required: professional + customer.
+        status: match.customer_swiped ? "accepted" : "pending",
         professional_swiped: true,
         updated_at: new Date(),
       });
@@ -379,10 +384,14 @@ router.post(
       }
 
       // Update match status
-      const updateData = { professional_swiped: true };
+      const updateData = {
+        professional_swiped: true,
+        updated_at: new Date(),
+      };
 
       if (action === "like") {
-        updateData.status = "accepted";
+        // Mutual acceptance required: professional + customer.
+        updateData.status = match.customer_swiped ? "accepted" : "pending";
       } else {
         updateData.status = "declined";
       }

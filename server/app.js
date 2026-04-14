@@ -35,7 +35,9 @@ function createApp() {
     windowMs: 15 * 60 * 1000,
     max: 100,
     // Never rate-limit CORS preflight checks.
-    skip: (req) => req.method === "OPTIONS",
+    // Also skip unread-summary polling used by dashboard badges.
+    skip: (req) =>
+      req.method === "OPTIONS" || req.path === "/api/messages/unread-summary",
   });
   app.use(limiter);
 
