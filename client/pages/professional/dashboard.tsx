@@ -49,6 +49,8 @@ interface JobMatch {
   status: string;
   customer_swiped?: boolean;
   professional_swiped?: boolean;
+  professional_completed_at?: string | null;
+  customer_completed_at?: string | null;
   created_at: string;
   job: {
     id: string;
@@ -207,12 +209,13 @@ export default function ProfessionalDashboard() {
         setJobMatches(list);
 
         const totalMatches = list.length;
+        const isCompleted = (match: JobMatch) =>
+          Boolean(match.professional_completed_at && match.customer_completed_at);
         const activeMatches = list.filter((match: JobMatch) =>
-          ["pending", "accepted"].includes(match.status)
+          ["pending", "accepted"].includes(match.status) && !isCompleted(match)
         ).length;
-        const completedJobs = list.filter(
-          (match: JobMatch) => match.status === "completed"
-        ).length;
+        const completedJobs = list.filter((match: JobMatch) => isCompleted(match))
+          .length;
 
         setStats((prev) => ({
           ...prev,
@@ -344,6 +347,29 @@ export default function ProfessionalDashboard() {
       toast.error("Network error");
     }
   };
+
+  const handleMarkDone = async (matchId: string) => {
+    try {
+      const token = localStorage.getItem("token");
+      const result = await fetch(apiUrl(`/api/matches/${matchId}/mark-done`), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await result.json().catch(() => ({}));
+      if (!result.ok) {
+        toast.error(data.error || "Failed to mark job done");
+        return;
+      }
+      toast.success("Marked done. Waiting for customer confirmation.");
+      fetchJobMatches();
+    } catch (error) {
+      toast.error("Network error");
+    }
+  };
+
+  const selectedMatch = jobMatches.find((m) => m.id === chatModal.matchId);
 
   if (isLoading) {
     return (
@@ -618,7 +644,10 @@ export default function ProfessionalDashboard() {
                                 match.status
                               )}`}
                             >
-                              {match.status}
+                              {match.professional_completed_at &&
+                              match.customer_completed_at
+                                ? "completed"
+                                : match.status}
                             </span>
                             <span
                               className={`px-2 py-1 text-xs font-medium rounded-full ${getUrgencyColor(
@@ -691,6 +720,15 @@ export default function ProfessionalDashboard() {
                             View Details
                           </Link>
                           {match.status === "accepted" && (
+                            <>
+                              {!match.professional_completed_at && (
+                                <button
+                                  onClick={() => handleMarkDone(match.id)}
+                                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-1 px-3 rounded transition-colors duration-200"
+                                >
+                                  Mark Done
+                                </button>
+                              )}
                             <button
                               onClick={() =>
                                 openChat(
@@ -711,6 +749,7 @@ export default function ProfessionalDashboard() {
                                 </span>
                               )}
                             </button>
+                            </>
                           )}
                         </div>
                       </div>
@@ -731,6 +770,18 @@ export default function ProfessionalDashboard() {
         token={localStorage.getItem("token") || ""}
         otherUserName={chatModal.otherUserName}
         jobTitle={chatModal.jobTitle}
+        completionActionLabel={
+          selectedMatch?.status === "accepted" &&
+          !selectedMatch?.professional_completed_at
+            ? "Mark Job Done"
+            : undefined
+        }
+        onCompletionAction={
+          selectedMatch?.status === "accepted" &&
+          !selectedMatch?.professional_completed_at
+            ? () => handleMarkDone(selectedMatch.id)
+            : undefined
+        }
       />
     </>
   );

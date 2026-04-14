@@ -19,6 +19,8 @@ interface JobMatch {
   status: string;
   customer_swiped?: boolean;
   professional_swiped?: boolean;
+  professional_completed_at?: string | null;
+  customer_completed_at?: string | null;
   created_at: string;
   job: {
     id: string;
@@ -124,6 +126,28 @@ export default function ProfessionalMatchDetailPage() {
     }
   };
 
+  const handleMarkDone = async () => {
+    if (!match) return;
+    try {
+      const token = localStorage.getItem("token");
+      const result = await fetch(apiUrl(`/api/matches/${match.id}/mark-done`), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await result.json().catch(() => ({}));
+      if (!result.ok) {
+        toast.error(data.error || "Failed to mark job done");
+        return;
+      }
+      toast.success("Marked done. Waiting for customer confirmation.");
+      fetchMatch();
+    } catch (error) {
+      toast.error("Network error");
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "pending":
@@ -147,6 +171,11 @@ export default function ProfessionalMatchDetailPage() {
       hour: "2-digit",
       minute: "2-digit",
     });
+
+  const displayStatus =
+    match?.professional_completed_at && match?.customer_completed_at
+      ? "completed"
+      : match?.status;
 
   if (isLoading) {
     return (
@@ -191,10 +220,10 @@ export default function ProfessionalMatchDetailPage() {
               <div className="flex items-center space-x-3">
                 <span
                   className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(
-                    match.status
+                    displayStatus || "pending"
                   )}`}
                 >
-                  {match.status}
+                  {displayStatus}
                 </span>
                 <span className="px-3 py-1 text-sm font-medium rounded-full bg-gray-100 text-gray-800 capitalize">
                   {match.job.service_category}
@@ -239,6 +268,13 @@ export default function ProfessionalMatchDetailPage() {
                 : "Review and choose to accept or decline this match."}
             </p>
           )}
+          {match.status === "accepted" &&
+            match.professional_completed_at &&
+            !match.customer_completed_at && (
+              <p className="text-sm text-indigo-600 mb-4">
+                You marked this job done. Waiting for customer confirmation.
+              </p>
+            )}
 
           {match.status === "pending" && !match.professional_swiped && (
             <div className="flex items-center space-x-3">
@@ -255,6 +291,16 @@ export default function ProfessionalMatchDetailPage() {
               >
                 <XCircleIcon className="h-4 w-4 mr-2" />
                 Decline
+              </button>
+            </div>
+          )}
+          {match.status === "accepted" && !match.professional_completed_at && (
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={handleMarkDone}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
+              >
+                Mark Done
               </button>
             </div>
           )}

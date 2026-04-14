@@ -203,6 +203,32 @@ export default function CustomerDashboard() {
     }
   };
 
+  const handleConfirmComplete = async (matchId: string) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        apiUrl(`/api/matches/${matchId}/confirm-complete`),
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        toast.error(data.error || "Failed to confirm completion");
+        return;
+      }
+      toast.success("Job marked as completed");
+      fetchMatches();
+      fetchJobs();
+    } catch (error) {
+      console.error("Failed to confirm completion:", error);
+      toast.error("Network error");
+    }
+  };
+
   const fetchUnreadSummary = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -290,6 +316,8 @@ export default function CustomerDashboard() {
     });
     fetchUnreadSummary();
   };
+
+  const selectedMatch = matches.find((m) => m.id === chatModal.matchId);
 
   if (isLoading) {
     return (
@@ -472,6 +500,13 @@ export default function CustomerDashboard() {
                                 : "Review this match and accept or decline."}
                             </p>
                           )}
+                          {match.status === "accepted" &&
+                            match.professional_completed_at &&
+                            !match.customer_completed_at && (
+                              <p className="mt-2 text-xs text-indigo-600 font-medium">
+                                Professional marked this job as done. Please confirm completion.
+                              </p>
+                            )}
                         </div>
                         <div className="flex items-center space-x-2">
                           {match.status === "pending" && !match.customer_swiped && (
@@ -496,26 +531,37 @@ export default function CustomerDashboard() {
                           )}
 
                           {match.status === "accepted" && (
-                            <button
-                              onClick={() =>
-                                openChat(
-                                  match.id,
-                                  `${match.professional.firstName} ${match.professional.lastName}`,
-                                  match.job.title
-                                )
-                              }
-                              className="relative bg-primary-600 text-white px-3 py-1 rounded-lg hover:bg-primary-700 transition-colors duration-200 flex items-center"
-                            >
-                              <ChatBubbleLeftRightIcon className="h-4 w-4 mr-1" />
-                              Message
-                              {(unreadByMatch[match.id] || 0) > 0 && (
-                                <span className="absolute -top-2 -right-2 min-w-[1.25rem] h-5 px-1 rounded-full bg-red-600 text-white text-[10px] leading-5 text-center font-semibold">
-                                  {unreadByMatch[match.id] > 99
-                                    ? "99+"
-                                    : unreadByMatch[match.id]}
-                                </span>
-                              )}
-                            </button>
+                            <>
+                              {match.professional_completed_at &&
+                                !match.customer_completed_at && (
+                                  <button
+                                    onClick={() => handleConfirmComplete(match.id)}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-lg transition-colors duration-200"
+                                  >
+                                    Confirm Complete
+                                  </button>
+                                )}
+                              <button
+                                onClick={() =>
+                                  openChat(
+                                    match.id,
+                                    `${match.professional.firstName} ${match.professional.lastName}`,
+                                    match.job.title
+                                  )
+                                }
+                                className="relative bg-primary-600 text-white px-3 py-1 rounded-lg hover:bg-primary-700 transition-colors duration-200 flex items-center"
+                              >
+                                <ChatBubbleLeftRightIcon className="h-4 w-4 mr-1" />
+                                Message
+                                {(unreadByMatch[match.id] || 0) > 0 && (
+                                  <span className="absolute -top-2 -right-2 min-w-[1.25rem] h-5 px-1 rounded-full bg-red-600 text-white text-[10px] leading-5 text-center font-semibold">
+                                    {unreadByMatch[match.id] > 99
+                                      ? "99+"
+                                      : unreadByMatch[match.id]}
+                                  </span>
+                                )}
+                              </button>
+                            </>
                           )}
                           <Link
                             href={`/customer/jobs/${match.job.id}`}
@@ -638,6 +684,20 @@ export default function CustomerDashboard() {
         token={localStorage.getItem("token") || ""}
         otherUserName={chatModal.otherUserName}
         jobTitle={chatModal.jobTitle}
+        completionActionLabel={
+          selectedMatch?.status === "accepted" &&
+          selectedMatch?.professional_completed_at &&
+          !selectedMatch?.customer_completed_at
+            ? "Confirm Completion"
+            : undefined
+        }
+        onCompletionAction={
+          selectedMatch?.status === "accepted" &&
+          selectedMatch?.professional_completed_at &&
+          !selectedMatch?.customer_completed_at
+            ? () => handleConfirmComplete(selectedMatch.id)
+            : undefined
+        }
       />
     </>
   );

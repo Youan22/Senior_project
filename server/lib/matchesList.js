@@ -13,6 +13,8 @@ function transformCustomerMatchRow(match) {
     status: match.status,
     customer_swiped: Boolean(match.customer_swiped),
     professional_swiped: Boolean(match.professional_swiped),
+    professional_completed_at: match.professional_completed_at || null,
+    customer_completed_at: match.customer_completed_at || null,
     created_at: match.created_at,
     job: {
       id: match.job_id,
@@ -51,6 +53,8 @@ function transformProfessionalMatchRow(match) {
     status: match.status,
     customer_swiped: Boolean(match.customer_swiped),
     professional_swiped: Boolean(match.professional_swiped),
+    professional_completed_at: match.professional_completed_at || null,
+    customer_completed_at: match.customer_completed_at || null,
     created_at: match.created_at,
     job: {
       id: match.job_id,
