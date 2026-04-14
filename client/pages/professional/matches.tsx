@@ -8,6 +8,7 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   EyeIcon,
+  ChatBubbleLeftRightIcon,
   MapPinIcon,
   CurrencyDollarIcon,
   ClockIcon,
@@ -15,6 +16,7 @@ import {
 } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
 import { apiUrl } from "../../lib/apiUrl";
+import ChatModal from "../../components/ChatModal";
 
 interface JobMatch {
   id: string;
@@ -51,8 +53,20 @@ interface JobMatch {
 export default function ProfessionalMatches() {
   const router = useRouter();
   const [jobMatches, setJobMatches] = useState<JobMatch[]>([]);
+  const [currentUserId, setCurrentUserId] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState("all");
+  const [chatModal, setChatModal] = useState<{
+    isOpen: boolean;
+    matchId: string;
+    otherUserName: string;
+    jobTitle: string;
+  }>({
+    isOpen: false,
+    matchId: "",
+    otherUserName: "",
+    jobTitle: "",
+  });
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -68,6 +82,7 @@ export default function ProfessionalMatches() {
       router.push("/customer/dashboard");
       return;
     }
+    setCurrentUserId(parsedUser.id || "");
 
     fetchJobMatches();
   }, [router]);
@@ -191,6 +206,26 @@ export default function ProfessionalMatches() {
     match.professional_completed_at && match.customer_completed_at
       ? "completed"
       : match.status;
+
+  const openChat = (match: JobMatch) => {
+    setChatModal({
+      isOpen: true,
+      matchId: match.id,
+      otherUserName: `${match.job.customer.firstName} ${match.job.customer.lastName}`,
+      jobTitle: match.job.title,
+    });
+  };
+
+  const closeChat = () => {
+    setChatModal({
+      isOpen: false,
+      matchId: "",
+      otherUserName: "",
+      jobTitle: "",
+    });
+  };
+
+  const selectedMatch = jobMatches.find((m) => m.id === chatModal.matchId);
 
   const filteredMatches = jobMatches.filter((match) => {
     if (filter === "all") return true;
@@ -430,6 +465,15 @@ export default function ProfessionalMatches() {
                               Mark Done
                             </button>
                           )}
+                        {match.status === "accepted" && (
+                          <button
+                            onClick={() => openChat(match)}
+                            className="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center"
+                          >
+                            <ChatBubbleLeftRightIcon className="h-4 w-4 mr-2" />
+                            Message
+                          </button>
+                        )}
 
                         <Link
                           href={`/professional/matches/${match.id}`}
@@ -446,6 +490,27 @@ export default function ProfessionalMatches() {
             </div>
           )}
         </div>
+        <ChatModal
+          isOpen={chatModal.isOpen}
+          onClose={closeChat}
+          matchId={chatModal.matchId}
+          currentUserId={currentUserId}
+          token={localStorage.getItem("token") || ""}
+          otherUserName={chatModal.otherUserName}
+          jobTitle={chatModal.jobTitle}
+          completionActionLabel={
+            selectedMatch?.status === "accepted" &&
+            !selectedMatch?.professional_completed_at
+              ? "Mark Job Done"
+              : undefined
+          }
+          onCompletionAction={
+            selectedMatch?.status === "accepted" &&
+            !selectedMatch?.professional_completed_at
+              ? () => handleMarkDone(selectedMatch.id)
+              : undefined
+          }
+        />
     </>
   );
 }
