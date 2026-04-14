@@ -406,4 +406,107 @@ router.post(
   }
 );
 
+// Professional marks job as done; customer confirmation completes it.
+router.post(
+  "/:matchId/mark-done",
+  authenticateToken,
+  requireProfessional,
+  async (req, res) => {
+    try {
+      const { matchId } = req.params;
+
+      const professional = await db("professionals")
+        .where("user_id", req.user.id)
+        .first();
+      if (!professional) {
+        return res
+          .status(404)
+          .json({ error: "Professional profile not found" });
+      }
+
+      const match = await db("matches")
+        .where("id", matchId)
+        .where("professional_id", professional.id)
+        .first();
+      if (!match) {
+        return res.status(404).json({ error: "Match not found" });
+      }
+      if (match.status !== "accepted") {
+        return res.status(400).json({
+          error: "Match must be mutually accepted before marking as done",
+        });
+      }
+
+      const now = new Date();
+      await db("matches").where("id", matchId).update({
+        professional_completed_at: now,
+        updated_at: now,
+      });
+
+      // Final completion occurs after both sides confirm.
+      if (match.customer_completed_at) {
+        await db("jobs").where("id", match.job_id).update({
+          status: "completed",
+          updated_at: now,
+        });
+      }
+
+      res.json({
+        message: "Marked as done. Waiting for customer confirmation.",
+      });
+    } catch (error) {
+      console.error("Mark done error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+
+// Customer confirms completion after professional marks done.
+router.post(
+  "/:matchId/confirm-complete",
+  authenticateToken,
+  requireCustomer,
+  async (req, res) => {
+    try {
+      const { matchId } = req.params;
+
+      const match = await db("matches")
+        .join("jobs", "matches.job_id", "jobs.id")
+        .where("matches.id", matchId)
+        .where("jobs.customer_id", req.user.id)
+        .select("matches.*", "jobs.id as job_id")
+        .first();
+      if (!match) {
+        return res.status(404).json({ error: "Match not found" });
+      }
+      if (match.status !== "accepted") {
+        return res.status(400).json({
+          error: "Match must be accepted before completion confirmation",
+        });
+      }
+      if (!match.professional_completed_at) {
+        return res.status(400).json({
+          error: "Professional must mark the job as done first",
+        });
+      }
+
+      const now = new Date();
+      await db("matches").where("id", matchId).update({
+        customer_completed_at: now,
+        updated_at: now,
+      });
+
+      await db("jobs").where("id", match.job_id).update({
+        status: "completed",
+        updated_at: now,
+      });
+
+      res.json({ message: "Job completed successfully" });
+    } catch (error) {
+      console.error("Confirm complete error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+
 module.exports = router;

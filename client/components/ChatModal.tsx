@@ -11,6 +11,9 @@ interface ChatModalProps {
   token: string;
   otherUserName: string;
   jobTitle: string;
+  completionActionLabel?: string;
+  onCompletionAction?: () => void;
+  completionActionDisabled?: boolean;
 }
 
 export default function ChatModal({
@@ -21,6 +24,9 @@ export default function ChatModal({
   token,
   otherUserName,
   jobTitle,
+  completionActionLabel,
+  onCompletionAction,
+  completionActionDisabled = false,
 }: ChatModalProps) {
   return (
     <Transition.Root show={isOpen} as={Fragment}>
@@ -85,6 +91,16 @@ export default function ChatModal({
                 </div>
 
                 <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
+                  {completionActionLabel && onCompletionAction && (
+                    <button
+                      type="button"
+                      className="inline-flex w-full justify-center rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 sm:ml-3 sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed"
+                      onClick={onCompletionAction}
+                      disabled={completionActionDisabled}
+                    >
+                      {completionActionLabel}
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"

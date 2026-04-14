@@ -23,6 +23,8 @@ interface JobMatch {
   status: string;
   customer_swiped?: boolean;
   professional_swiped?: boolean;
+  professional_completed_at?: string | null;
+  customer_completed_at?: string | null;
   created_at: string;
   job: {
     id: string;
@@ -124,6 +126,27 @@ export default function ProfessionalMatches() {
     }
   };
 
+  const handleMarkDone = async (matchId: string) => {
+    try {
+      const token = localStorage.getItem("token");
+      const result = await fetch(apiUrl(`/api/matches/${matchId}/mark-done`), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await result.json().catch(() => ({}));
+      if (!result.ok) {
+        toast.error(data.error || "Failed to mark job done");
+        return;
+      }
+      toast.success("Marked done. Waiting for customer confirmation.");
+      fetchJobMatches();
+    } catch (error) {
+      toast.error("Network error");
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "pending":
@@ -164,9 +187,14 @@ export default function ProfessionalMatches() {
     });
   };
 
+  const getDisplayStatus = (match: JobMatch) =>
+    match.professional_completed_at && match.customer_completed_at
+      ? "completed"
+      : match.status;
+
   const filteredMatches = jobMatches.filter((match) => {
     if (filter === "all") return true;
-    return match.status === filter;
+    return getDisplayStatus(match) === filter;
   });
 
   if (isLoading) {
@@ -220,25 +248,25 @@ export default function ProfessionalMatches() {
                   {
                     key: "pending",
                     label: "Pending",
-                    count: jobMatches.filter((m) => m.status === "pending")
+                    count: jobMatches.filter((m) => getDisplayStatus(m) === "pending")
                       .length,
                   },
                   {
                     key: "accepted",
                     label: "Accepted",
-                    count: jobMatches.filter((m) => m.status === "accepted")
+                    count: jobMatches.filter((m) => getDisplayStatus(m) === "accepted")
                       .length,
                   },
                   {
                     key: "declined",
                     label: "Declined",
-                    count: jobMatches.filter((m) => m.status === "declined")
+                    count: jobMatches.filter((m) => getDisplayStatus(m) === "declined")
                       .length,
                   },
                   {
                     key: "completed",
                     label: "Completed",
-                    count: jobMatches.filter((m) => m.status === "completed")
+                    count: jobMatches.filter((m) => getDisplayStatus(m) === "completed")
                       .length,
                   },
                 ].map((tab) => (
@@ -295,10 +323,10 @@ export default function ProfessionalMatches() {
                           </h3>
                           <span
                             className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(
-                              match.status
+                              getDisplayStatus(match)
                             )}`}
                           >
-                            {match.status}
+                            {getDisplayStatus(match)}
                           </span>
                           <span
                             className={`px-3 py-1 text-sm font-medium rounded-full ${getUrgencyColor(
@@ -360,6 +388,13 @@ export default function ProfessionalMatches() {
                               : "Review this job and accept or decline."}
                           </p>
                         )}
+                        {match.status === "accepted" &&
+                          match.professional_completed_at &&
+                          !match.customer_completed_at && (
+                            <p className="text-sm text-indigo-600 mb-4">
+                              You marked this job done. Waiting for customer confirmation.
+                            </p>
+                          )}
                       </div>
 
                       <div className="flex items-center space-x-3 ml-6">
@@ -386,6 +421,15 @@ export default function ProfessionalMatches() {
                             </button>
                           </>
                         )}
+                        {match.status === "accepted" &&
+                          !match.professional_completed_at && (
+                            <button
+                              onClick={() => handleMarkDone(match.id)}
+                              className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
+                            >
+                              Mark Done
+                            </button>
+                          )}
 
                         <Link
                           href={`/professional/matches/${match.id}`}
