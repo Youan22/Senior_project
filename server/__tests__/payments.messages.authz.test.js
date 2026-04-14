@@ -112,7 +112,7 @@ describe("Phase 1 route authz (payments + messages)", () => {
       getMatchAccess.mockResolvedValue({
         kind: "ok",
         role: "customer",
-        match: { id: "m1" },
+        match: { id: "m1", status: "accepted" },
       });
       db.mockImplementation((table) => {
         if (table === "messages") {
@@ -157,7 +157,7 @@ describe("Phase 1 route authz (payments + messages)", () => {
       getMatchAccess.mockResolvedValue({
         kind: "ok",
         role: "customer",
-        match: { id: "m1" },
+        match: { id: "m1", status: "accepted" },
       });
       const update = jest.fn().mockResolvedValue(1);
       db.mockImplementation((table) => {

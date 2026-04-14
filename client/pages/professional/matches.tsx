@@ -21,6 +21,8 @@ interface JobMatch {
   job_id: string;
   professional_id: string;
   status: string;
+  customer_swiped?: boolean;
+  professional_swiped?: boolean;
   created_at: string;
   job: {
     id: string;
@@ -351,10 +353,18 @@ export default function ProfessionalMatches() {
                             </span>
                           </div>
                         )}
+                        {match.status === "pending" && (
+                          <p className="text-sm text-gray-500 mb-4">
+                            {match.professional_swiped
+                              ? "You accepted. Waiting for customer decision."
+                              : "Review this job and accept or decline."}
+                          </p>
+                        )}
                       </div>
 
                       <div className="flex items-center space-x-3 ml-6">
-                        {match.status === "pending" && (
+                        {match.status === "pending" &&
+                          !match.professional_swiped && (
                           <>
                             <button
                               onClick={() =>

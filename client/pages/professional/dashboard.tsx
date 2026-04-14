@@ -47,6 +47,8 @@ interface JobMatch {
   job_id: string;
   professional_id: string;
   status: string;
+  customer_swiped?: boolean;
+  professional_swiped?: boolean;
   created_at: string;
   job: {
     id: string;
@@ -75,6 +77,8 @@ export default function ProfessionalDashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [professional, setProfessional] = useState<Professional | null>(null);
   const [jobMatches, setJobMatches] = useState<JobMatch[]>([]);
+  const [unreadByMatch, setUnreadByMatch] = useState<Record<string, number>>({});
+  const [totalUnread, setTotalUnread] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [chatModal, setChatModal] = useState<{
     isOpen: boolean;
@@ -128,7 +132,17 @@ export default function ProfessionalDashboard() {
     setUser(parsedUser);
     fetchProfessionalData();
     fetchJobMatches();
+    fetchUnreadSummary();
   }, [router]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        fetchUnreadSummary();
+      }
+    }, 30000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const fetchProfessionalData = async () => {
     try {
@@ -223,6 +237,25 @@ export default function ProfessionalDashboard() {
     }
   };
 
+  const fetchUnreadSummary = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(apiUrl("/api/messages/unread-summary"), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUnreadByMatch(data.byMatch || {});
+        setTotalUnread(data.totalUnread || 0);
+      }
+    } catch (error) {
+      console.error("Failed to fetch unread summary:", error);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "pending":
@@ -281,6 +314,7 @@ export default function ProfessionalDashboard() {
       otherUserName: "",
       jobTitle: "",
     });
+    fetchUnreadSummary();
   };
 
   const handleMatchResponse = async (
@@ -368,7 +402,14 @@ export default function ProfessionalDashboard() {
               className="bg-white rounded-lg shadow p-6"
             >
               <div className="flex items-center">
-                <EyeIcon className="h-8 w-8 text-blue-600" />
+                <div className="relative">
+                  <EyeIcon className="h-8 w-8 text-blue-600" />
+                  {totalUnread > 0 && (
+                    <span className="absolute -top-2 -right-2 min-w-[1.25rem] h-5 px-1 rounded-full bg-red-600 text-white text-[10px] leading-5 text-center font-semibold">
+                      {totalUnread > 99 ? "99+" : totalUnread}
+                    </span>
+                  )}
+                </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">
                     Active Matches
@@ -612,10 +653,18 @@ export default function ProfessionalDashboard() {
                               Posted {formatDate(match.job.created_at)}
                             </span>
                           </div>
+                          {match.status === "pending" && (
+                            <p className="mt-2 text-xs text-gray-500">
+                              {match.professional_swiped
+                                ? "You accepted. Waiting for customer decision."
+                                : "Review this job and accept or decline."}
+                            </p>
+                          )}
                         </div>
 
                         <div className="flex items-center space-x-2 ml-6">
-                          {match.status === "pending" && (
+                          {match.status === "pending" &&
+                            !match.professional_swiped && (
                             <>
                               <button
                                 onClick={() =>
@@ -650,10 +699,17 @@ export default function ProfessionalDashboard() {
                                   match.job.title
                                 )
                               }
-                              className="bg-primary-600 text-white px-3 py-1 rounded-lg hover:bg-primary-700 transition-colors duration-200 flex items-center text-sm"
+                              className="relative bg-primary-600 text-white px-3 py-1 rounded-lg hover:bg-primary-700 transition-colors duration-200 flex items-center text-sm"
                             >
                               <ChatBubbleLeftRightIcon className="h-4 w-4 mr-1" />
                               Message
+                              {(unreadByMatch[match.id] || 0) > 0 && (
+                                <span className="absolute -top-2 -right-2 min-w-[1.25rem] h-5 px-1 rounded-full bg-red-600 text-white text-[10px] leading-5 text-center font-semibold">
+                                  {unreadByMatch[match.id] > 99
+                                    ? "99+"
+                                    : unreadByMatch[match.id]}
+                                </span>
+                              )}
                             </button>
                           )}
                         </div>
